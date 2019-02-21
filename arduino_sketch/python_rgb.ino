@@ -29,6 +29,15 @@ void setup() {
   memset(pythonRed, 0, 4);
   memset(pythonGreen, 0, 4);
   memset(pythonBlue, 0, 4);
+  
+  // Once that is done lets do a quick color cycle and move to 50 percent white so we know we are ready for next step.
+  setColor(255,0,0);
+  delay(500);
+  setColor(0,255,0);
+  delay(500);
+  setColor(0,0,255);
+  delay(500);
+  setColor(50,50,50);
 }
 
 void loop() {
