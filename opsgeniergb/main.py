@@ -17,6 +17,8 @@ with open('/mnt/sda1/pythonfiles/opsgeniergb/apikey.cfg', 'r') as configfile:
     config.readfp(configfile)
 
 API_KEY = "GenieKey {}".format(config.get('DEFAULT', 'GENIEKEY'))
+SSL_VERIFY = config.getboolean('SECURITY', 'SSL_VERIFY')
+INCIDENT_SUPPORT = config.getboolean('DEFAULT', 'INCIDENT_SUPPORT')
 
 
 def get_environment_status():
@@ -28,19 +30,23 @@ def get_environment_status():
 
     # Check for Incidents and return CRITICAL if found
     parameters = {'query': 'status:open'}
-    incidents = requests.get(API_INCIDENTS_URL, headers=headers, params=parameters).json()['data']
-    if len(incidents) > 0:
-        return "CRITICAL"
+    if INCIDENT_SUPPORT:
+        incidents = requests.get(API_INCIDENTS_URL, headers=headers, params=parameters, verify=SSL_VERIFY).json()['data']
+        if len(incidents) > 0:
+            return "CRITICAL"
 
     # Check for Recent Alerts and return WARNING if found
     parameters = {'query': 'status:open AND createdAt>={})'.format(currentUnixStamp - 86400)}
-    alerts = requests.get(API_ALERTS_URL, headers=headers, params=parameters).json()['data']
+    alerts = requests.get(API_ALERTS_URL, headers=headers, params=parameters, verify=SSL_VERIFY).json()['data']
     if len(alerts) > 0:
-        return "WARNING"
+        if INCIDENT_SUPPORT:
+            return "WARNING"
+        else:
+            return "CRITICAL"
 
     # Check for open alerts not yet closed
     parameters = {'query': 'status:open'}
-    alerts = requests.get(API_ALERTS_URL, headers=headers, params=parameters).json()['data']
+    alerts = requests.get(API_ALERTS_URL, headers=headers, params=parameters, verify=SSL_VERIFY).json()['data']
     if len(alerts) > 0:
         return "INFO"
 
@@ -52,10 +58,13 @@ def find_color():
         "CRITICAL": "RED",
         "WARNING": "YELLOW",
         "INFO": "BLUE",
-        "NORMAL": "GREEN"
+        "NORMAL": "GREEN",
+        "GET_ERROR": "PURPLE"
     }
-
-    return color_mapping[get_environment_status()]
+    try:
+        return color_mapping[get_environment_status()]
+    except Exception:
+        return color_mapping['GET_ERROR']
 
 
 def write_arduino(color):
@@ -64,6 +73,7 @@ def write_arduino(color):
         "YELLOW": ("255", "255", "0"),
         "GREEN": ("0", "255", "0"),
         "BLUE": ("0", "0", "255"),
+        "PURPLE": ("255", "255", "0")
     }
     pythonRed, pythonGreen, pythonBlue = color_to_rgb_map[color]
     bridge = bridgeclient()
